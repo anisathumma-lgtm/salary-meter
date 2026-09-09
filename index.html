@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#12181B">
+<meta name="description" content="มิเตอร์เงินเดือนทีม - ติดตามค่าแรงพนักงานแบบเรียลไทม์">
+<title>💰 มิเตอร์เงินเดือนทีม</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%2275%22 font-size=%2275%22>💰</text></svg>">
+<link rel="manifest" href="data:application/manifest+json,{%22name%22:%22มิเตอร์เงินเดือนทีม%22,%22short_name%22:%22Salary Meter%22,%22start_url%22:%22./%22,%22display%22:%22standalone%22,%22theme_color%22:%22%2312181B%22,%22background_color%22:%22%2312181B%22}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#12181B; --panel:#1A2226; --panel-2:#212B30; --border:#2B363B;
+    --gold:#E8A33D; --teal:#49C9A0; --muted:#7C8A90; --text:#ECE7DB; --text-dim:#8B979C;
+    --red:#E36767;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min-height:100vh;padding:28px 14px 60px;}
+  .wrap{max-width:820px;margin:0 auto;}
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+
+  header{text-align:center;margin-bottom:18px;}
+  header h1{font-size:1.2rem;font-weight:600;margin:0 0 4px;}
+  header p{margin:0;font-size:0.85rem;color:var(--text-dim);}
+
+  .topbar{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;margin-bottom:18px;}
+  .cutoff-field{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:8px 12px;font-size:0.85rem;color:var(--text-dim);}
+  .cutoff-field input{width:52px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:5px 7px;font-family:'IBM Plex Mono',monospace;text-align:center;}
+  .btn{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;
+    padding:9px 16px;font-family:'Sarabun',sans-serif;font-size:0.85rem;cursor:pointer;transition:all 0.2s;}
+  .btn:hover{border-color:var(--gold);}
+  .btn.primary{border-color:var(--gold);color:var(--gold);}
+  .btn.primary:hover{background:rgba(232,163,61,0.12);}
+  .btn.small{padding:6px 10px;font-size:0.78rem;}
+  .btn.success{border-color:var(--teal);color:var(--teal);}
+  .btn.success:hover{background:rgba(73,201,160,0.12);}
+
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+  .summary .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;}
+  .summary .card .label{font-size:0.78rem;color:var(--text-dim);margin-bottom:6px;}
+  .summary .card .val{font-size:1.4rem;font-weight:700;color:var(--gold);}
+  @media (max-width:480px){.summary{grid-template-columns:1fr;}}
+
+  .team-energy{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:18px;}
+  .team-energy .te-head{display:flex;justify-content:space-between;align-items:baseline;font-size:0.8rem;color:var(--text-dim);margin-bottom:9px;}
+  .team-energy .te-head b{color:var(--gold);font-size:0.95rem;}
+
+  .energy-bar{position:relative;height:8px;border-radius:6px;background:var(--panel-2);border:1px solid var(--border);overflow:hidden;}
+  .energy-bar.big{height:14px;border-radius:8px;}
+  .energy-fill{position:absolute;top:0;left:0;height:100%;border-radius:6px;
+    background:linear-gradient(90deg, var(--gold), var(--teal));transition:width 0.9s linear;z-index:2;}
+  .energy-fill.brk{background:var(--gold);}
+  .energy-fill.idle{background:var(--muted);opacity:0.55;}
+  .energy-fill.done{background:var(--teal);}
+  .energy-break{position:absolute;top:0;height:100%;z-index:1;display:none;
+    background:repeating-linear-gradient(45deg, rgba(124,138,144,0.4) 0 4px, rgba(124,138,144,0.15) 4px 8px);}
+
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .list-head h2{font-size:0.95rem;font-weight:600;margin:0;}
+
+  .emp{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;}
+  .emp-row{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;}
+  .emp-row .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;}
+  .emp-row .dot.on{background:var(--teal);box-shadow:0 0 0 0 rgba(73,201,160,0.6);animation:pulse 1.6s ease-out infinite;}
+  .emp-row .dot.brk{background:var(--gold);box-shadow:0 0 0 0 rgba(232,163,61,0.6);animation:pulseGold 1.6s ease-out infinite;}
+  @media (prefers-reduced-motion: reduce){.emp-row .dot.on, .emp-row .dot.brk{animation:none;}}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(73,201,160,.45);}70%{box-shadow:0 0 0 7px rgba(73,201,160,0);}100%{box-shadow:0 0 0 0 rgba(73,201,160,0);}}
+  @keyframes pulseGold{0%{box-shadow:0 0 0 0 rgba(232,163,61,.45);}70%{box-shadow:0 0 0 7px rgba(232,163,61,0);}100%{box-shadow:0 0 0 0 rgba(232,163,61,0);}}
+  .emp-name{flex:1;min-width:0;}
+  .emp-name .n{font-weight:600;font-size:0.95rem;}
+  .emp-name .s{font-size:0.75rem;color:var(--text-dim);}
+  .emp-figs{display:flex;gap:18px;align-items:baseline;}
+  .emp-figs .fig{text-align:right;}
+  .emp-figs .fig .lbl{font-size:0.68rem;color:var(--text-dim);}
+  .emp-figs .fig .amt{font-size:0.98rem;font-weight:600;}
+  .chevron{transition:transform .25s ease;color:var(--text-dim);flex:none;}
+  .chevron.open{transform:rotate(180deg);}
+
+  .energy-wrap{padding:0 16px 14px;}
+  .energy-label{display:flex;justify-content:space-between;font-size:0.66rem;color:var(--text-dim);margin-top:5px;}
+  .energy-label .pct{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+
+  .emp-body{max-height:0;overflow:hidden;transition:max-height .3s ease;border-top:1px solid var(--border);}
+  .emp-body.open{max-height:1400px;}
+  .emp-inner{padding:16px;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:0.8rem;color:var(--text-dim);margin-bottom:5px;}
+  .field input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:8px 10px;font-family:'IBM Plex Mono',monospace;font-size:0.9rem;}
+  .row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+  @media (max-width:480px){.row4{grid-template-columns:1fr 1fr;}}
+
+  .break-note{font-size:0.72rem;color:var(--gold);margin:-6px 0 12px;}
+  .break-note.err{color:var(--red);}
+
+  .rate-mini{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;}
+  .rate-mini .m{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 4px;text-align:center;}
+  .rate-mini .m .l{font-size:0.65rem;color:var(--text-dim);}
+  .rate-mini .m .v{font-size:0.82rem;font-weight:600;}
+
+  .cal-label{font-size:0.8rem;color:var(--text-dim);margin:6px 0 8px;display:flex;justify-content:space-between;align-items:center;}
+  .cal-label .quick-btns{display:flex;gap:6px;flex-wrap:wrap;}
+  .quick-btns .btn{padding:4px 8px;font-size:0.7rem;}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:4px;}
+  .cal-dow{text-align:center;font-size:0.64rem;color:var(--muted);}
+  .day-chip{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:7px;
+    border:1px solid var(--border);background:var(--panel-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;
+    font-size:0.75rem;color:var(--text-dim);user-select:none;transition:all 0.15s;position:relative;overflow:hidden;}
+  .day-chip:not(.blank):hover{border-color:var(--teal);background:rgba(73,201,160,0.08);}
+  .day-chip.on{background:rgba(232,163,61,0.14);border-color:var(--gold);color:var(--gold);font-weight:600;}
+  .day-chip.half{background:linear-gradient(135deg, rgba(232,163,61,0.14) 50%, transparent 50%);border-color:var(--gold);color:var(--gold);font-weight:600;}
+  .day-chip.half::after{content:'½';position:absolute;font-size:0.5rem;right:1px;bottom:0px;opacity:0.7;}
+  .day-chip.today{box-shadow:inset 0 0 0 1px var(--teal);}
+  .day-chip.blank{visibility:hidden;}
+  .cal-summary{display:flex;justify-content:space-between;font-size:0.76rem;color:var(--text-dim);margin-top:6px;}
+  .cal-summary b{color:var(--text);}
+
+  .emp-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .empty{text-align:center;color:var(--text-dim);font-size:0.88rem;padding:30px 10px;}
+
+  footer{text-align:center;font-size:0.74rem;color:var(--muted);margin-top:20px;line-height:1.6;}
+
+  /* Lock overlay for shared copies */
+  .lock-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:none;align-items:center;justify-content:center;padding:20px;}
+  .lock-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 22px;max-width:340px;width:100%;text-align:center;}
+  .lock-icon{font-size:2.2rem;margin-bottom:8px;}
+  .lock-box h2{font-size:1.05rem;margin:0 0 6px;}
+  .lock-box p{font-size:0.82rem;color:var(--text-dim);margin:0 0 16px;line-height:1.5;}
+  .lock-box input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    border-radius:10px;padding:11px 12px;font-family:'Sarabun',sans-serif;font-size:0.92rem;margin-bottom:10px;}
+  .lock-box .btn{width:100%;}
+  .lock-error{color:var(--red);font-size:0.78rem;margin-top:10px;}
+  .lock-wait-text{font-size:0.9rem;margin-bottom:14px;}
+
+  /* Share panel */
+  .share-panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:18px;display:none;}
+  .share-panel.open{display:block;}
+  .share-panel h3{font-size:0.9rem;margin:0 0 8px;}
+  .share-panel p{font-size:0.78rem;color:var(--text-dim);margin:0 0 12px;line-height:1.6;}
+  .share-panel .field{margin-bottom:10px;}
+  .share-panel a{color:var(--teal);}
+  .share-panel details{font-size:0.78rem;color:var(--text-dim);margin-top:10px;line-height:1.7;}
+  .share-panel details summary{cursor:pointer;color:var(--gold);margin-bottom:6px;}
+  .share-panel pre{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px;
+    font-size:0.68rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word;color:var(--text);}
+</style>
+</head>
+<body>
+
+<div class="lock-overlay" id="lockOverlay">
+  <div class="lock-box">
+    <div class="lock-icon">🔒</div>
+    <h2>ต้องขออนุญาตก่อนใช้งาน</h2>
+    <p>กรอกชื่อของคุณแล้วส่งคำขอ ผู้ดูแลเว็บนี้จะเป็นคนกดอนุมัติให้</p>
+
+    <div id="lockFormStep">
+      <input type="text" id="lockNameInput" placeholder="ชื่อของคุณ">
+      <input type="text" id="lockNoteInput" placeholder="หมายเหตุ (ถ้ามี)">
+      <button class="btn primary" id="lockRequestBtn">ขอสิทธิ์การใช้งาน</button>
+    </div>
+
+    <div id="lockWaitStep" style="display:none;">
+      <p class="lock-wait-text">⏳ ส่งคำขอแล้ว กำลังรอผู้ดูแลอนุมัติ…</p>
+      <button class="btn small" id="lockRecheckBtn">เช็คสถานะตอนนี้</button>
+    </div>
+
+    <div id="lockDeniedStep" style="display:none;">
+      <p style="color:var(--red);margin-bottom:14px;">❌ คำขอถูกปฏิเสธ หรือยังไม่พบคำขอนี้</p>
+      <button class="btn small" id="lockRetryBtn">ขออีกครั้ง</button>
+    </div>
+
+    <div class="lock-error" id="lockError" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header>
+    <h1>💰 มิเตอร์เงินเดือนทีม</h1>
+    <p id="periodLabel">รอบ …</p>
+  </header>
+
+  <div class="topbar">
+    <div class="cutoff-field">
+      <span>ตัดรอบทุกวันที่</span>
+      <input type="number" id="cutoffInput" min="1" max="31">
+      <span id="cutoffCountdown"></span>
+    </div>
+    <button class="btn" id="shareToggleBtn">🔗 แชร์เว็บนี้</button>
+    <button class="btn primary" id="exportBtn">📊 ส่งออก Excel</button>
+  </div>
+
+  <div class="share-panel" id="sharePanel">
+    <h3>🔗 สร้างไฟล์สำหรับแชร์ (ระบบขอ-อนุมัติ)</h3>
+    <p>
+      ไฟล์ที่แชร์จะเป็นหน้าเว็บใหม่เสมอ — ข้อมูล/ตัวเลขเงินเดือนของคุณอยู่ใน browser เครื่องคุณเท่านั้น ไม่ติดไปกับไฟล์ที่แชร์<br><br>
+      เวลาคนอื่นเปิดไฟล์นี้ เขาจะต้องกรอกชื่อแล้ว "ขอสิทธิ์" ก่อน — คำขอจะไปโผล่ใน Google Sheet ที่คุณเป็นคนดู แล้ว<b>คุณเป็นคนพิมพ์ "approved" เพื่ออนุมัติเอง</b> เว็บของเขาจะปลดล็อกอัตโนมัติหลังจากนั้น
+    </p>
+    <div class="field">
+      <label>Apps Script Web App URL (ได้จากขั้นตอนตั้งค่าด้านล่าง)</label>
+      <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/xxxx/exec">
+    </div>
+    <button class="btn success" id="generateShareBtn">⬇️ ดาวน์โหลดไฟล์สำหรับแชร์</button>
+
+    <details>
+      <summary>วิธีตั้งค่าระบบอนุมัติ (ทำครั้งเดียว ~10 นาที)</summary>
+      1. เปิด <a href="https://sheets.google.com" target="_blank" rel="noopener">Google Sheets</a> สร้างสเปรดชีตใหม่ ตั้งชื่ออะไรก็ได้ เช่น "คำขอใช้งานมิเตอร์เงินเดือน"<br>
+      2. เมนู Extensions → Apps Script<br>
+      3. ลบโค้ดเดิมในไฟล์ออกให้หมด แล้ววางโค้ดนี้แทน:
+      <pre id="gasCode">function doGet(e){
+  var action = e.parameter.action;
+  var sheet = getSheet_();
+  if(action === 'check'){
+    var id = e.parameter.id;
+    var data = sheet.getDataRange().getValues();
+    for (var i=1; i<data.length; i++){
+      if (data[i][1] === id) return respond_({status: data[i][4]});
+    }
+    return respond_({status:'not_found'});
+  }
+  return respond_({error:'unknown action'});
+}
+
+function doPost(e){
+  var body = JSON.parse(e.postData.contents);
+  var sheet = getSheet_();
+  if (body.action === 'request'){
+    var id = Utilities.getUuid();
+    sheet.appendRow([new Date(), id, body.name || 'ไม่ระบุชื่อ', body.note || '', 'pending', '']);
+    return respond_({requestId:id});
+  }
+  return respond_({error:'unknown action'});
+}
+
+function getSheet_(){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Requests');
+  if (!sheet){
+    sheet = ss.insertSheet('Requests');
+    sheet.appendRow(['เวลาที่ขอ','RequestID','ชื่อ','หมายเหตุ','สถานะ (พิมพ์ approved หรือ denied)','เวลาที่อนุมัติ']);
+  }
+  return sheet;
+}
+
+function respond_(obj){
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+      4. กด Save (ไอคอนแผ่นดิสก์)<br>
+      5. กด Deploy → New deployment → เลือกรูปเฟือง Select type → <b>Web app</b><br>
+      6. ตั้งค่า Execute as: <b>Me</b>, Who has access: <b>Anyone</b> → กด Deploy<br>
+      7. อนุญาตสิทธิ์ (Authorize) ตามที่ Google ถาม (เป็นสคริปต์ของคุณเอง ปลอดภัย)<br>
+      8. คัดลอก "Web app URL" ที่ได้ มาวางในช่องด้านบน แล้วกดดาวน์โหลดไฟล์สำหรับแชร์<br><br>
+      <b>วิธีอนุมัติคำขอ:</b> เปิดสเปรดชีตนี้ จะเห็นแถวคำขอใหม่ขึ้นเรื่อยๆ พิมพ์ <b>approved</b> ในช่องคอลัมน์ "สถานะ" ของแถวนั้น เว็บของคนที่ขอจะปลดล็อกให้อัตโนมัติภายในไม่กี่วินาที (พิมพ์ <b>denied</b> เพื่อปฏิเสธ)
+    </details>
+  </div>
+
+  <div class="summary">
+    <div class="card"><div class="label">รวมวันนี้ (ทั้งทีม)</div><div class="val mono" id="sumToday">0.00 บาท</div></div>
+    <div class="card"><div class="label">รวมสะสมรอบนี้ (ทั้งทีม)</div><div class="val mono" id="sumPeriod">0.00 บาท</div></div>
+  </div>
+
+  <div class="team-energy">
+    <div class="te-head"><span>⚡ หลอดพลังงานทีม (ความคืบหน้าวันนี้)</span><b class="mono" id="teamPct">0%</b></div>
+    <div class="energy-bar big"><div class="energy-fill" id="teamFill" style="width:0%;"></div></div>
+  </div>
+
+  <div class="list-head">
+    <h2>รายชื่อพนักงาน (<span id="empCount">0</span>)</h2>
+    <button class="btn" id="addBtn">+ เพิ่มพนักงาน</button>
+  </div>
+
+  <div id="empList"></div>
+
+  <footer>
+    💾 <b>ข้อมูลเซฟอัตโนมัติใน browser</b> — ปิด/เปิดใหม่ข้อมูลยังอยู่<br>
+    📌 <b>วิธีปักหมุดใน iPhone (Safari):</b> แตะปุ่มแชร์ (□↑) → <b>เพิ่มไปยังหน้าจอโฮม</b><br>
+    🎯 คลิกวันเพื่อ cycle: ไม่ทำงาน → ครึ่งวัน → เต็มวัน<br>
+    <small style="color:#5a6a6f;">✅ ทำงานแม้ offline • ข้อมูลปลอดภัยใน browser เท่านั้น</small>
+  </footer>
+
+</div>
+
+<script>
+// ===== ACCESS CONTROL (baked into shared copies via the "แชร์เว็บนี้" button) =====
+const SCRIPT_URL = "";
+const REQ_KEY = 'salary-meter-request';
+
+const THAI_DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+const THAI_MONTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const STORAGE_KEY = 'salary-meter-v2';
+
+const fmt  = n => (isFinite(n)?n:0).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmt4 = n => (isFinite(n)?n:0).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:4});
+const dateKey = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const sameDate = (a,b) => dateKey(a)===dateKey(b);
+const stripTime = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const lastDayOfMonth = (y,m) => new Date(y, m+1, 0).getDate();
+const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const fmtTime = d => String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const toMinutes = t => { const [h,m] = (t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); };
+
+let state = {
+  cutoffDay: 25,
+  employees: [],
+  lastSyncTime: Date.now()
+};
+let expandedId = null;
+
+function clampCutoff(day, y, m){ return Math.min(Math.max(day,1), lastDayOfMonth(y,m)); }
+
+function getPeriodRange(today, cutoffDay){
+  const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  const cThis = clampCutoff(cutoffDay, y, m);
+  let start, end;
+  if(d > cThis){
+    const ny = m===11 ? y+1 : y, nm = (m+1)%12;
+    start = new Date(y, m, cThis+1);
+    end = new Date(ny, nm, clampCutoff(cutoffDay, ny, nm));
+  } else {
+    const py = m===0 ? y-1 : y, pm = (m+11)%12;
+    start = new Date(py, pm, clampCutoff(cutoffDay, py, pm)+1);
+    end = new Date(y, m, cThis);
+  }
+  return {start, end};
+}
+
+function listDates(start, end){
+  const out = []; let cur = new Date(start);
+  while(cur <= end){ out.push(new Date(cur)); cur.setDate(cur.getDate()+1); }
+  return out;
+}
+
+function thaiDateLabel(d){ return d.getDate()+' '+THAI_MONTH[d.getMonth()]+' '+(d.getFullYear()+543); }
+
+function isMarked(emp, d){
+  const v = emp.workDays[dateKey(d)];
+  return (v === 1 || v === 0.5) ? v : 0;
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) state = Object.assign(state, JSON.parse(raw));
+  }catch(e){ console.error('load failed', e); }
+}
+
+function saveState(){
+  try{
+    state.lastSyncTime = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ console.error('save failed', e); }
+}
+
+// emp: { startTime, endTime, breakStart, breakEnd } are "HH:MM" clock times for that workday.
+// Paid hours/day = (endTime - startTime) - (breakEnd - breakStart). Break is unpaid.
+function computeEmployee(emp, now, periodDates){
+  const today = stripTime(now);
+  const salary = parseFloat(emp.salary);
+  const standardDays = parseFloat(emp.standardDays) || 0;
+  const totalWorkDays = periodDates.reduce((s,d) => s + isMarked(emp,d), 0);
+  const absentDays = Math.max(standardDays - totalWorkDays, 0);
+  const hasSalary = !isNaN(salary) && salary > 0;
+  const dailyRate = hasSalary && standardDays>0 ? salary/standardDays : 0;
+
+  const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  const mk = (t, fallback) => {
+    const mins = toMinutes(t || fallback);
+    return new Date(y, m, d, Math.floor(mins/60), mins%60, 0);
+  };
+  const startDT = mk(emp.startTime, '09:00');
+  const endDTFull = mk(emp.endTime, '18:00');
+  const breakStartDT = mk(emp.breakStart, '12:00');
+  const breakEndDT = mk(emp.breakEnd, '13:00');
+
+  const breakSec = Math.max((breakEndDT - breakStartDT)/1000, 0);
+  const totalSpanSec = Math.max((endDTFull - startDT)/1000, 0);
+  const fullPaidSec = Math.max(totalSpanSec - breakSec, 0);
+  const hoursPerDay = fullPaidSec/3600;
+  const hourlyRate = hoursPerDay>0 ? dailyRate/hoursPerDay : 0;
+  const perMinute = hourlyRate/60;
+  const perSecond = perMinute/60;
+  const scheduleValid = totalSpanSec > 0 && fullPaidSec >= 0;
+
+  const todayWeight = isMarked(emp, today);
+  const paidSec = fullPaidSec * todayWeight;
+
+  // For a half-day (0.5), skip the break window entirely: work continuous from startDT for half the paid hours.
+  let effBreakStart = breakStartDT, effBreakEnd = breakEndDT, effEnd = endDTFull, effBreakSec = breakSec;
+  if(todayWeight === 0.5){
+    effEnd = new Date(startDT.getTime() + paidSec*1000);
+    effBreakStart = effEnd; effBreakEnd = effEnd; effBreakSec = 0;
+  }
+
+  let elapsedSec = 0;
+  if(todayWeight > 0 && scheduleValid){
+    if(now < startDT) elapsedSec = 0;
+    else if(now < effBreakStart) elapsedSec = (now - startDT)/1000;
+    else if(now < effBreakEnd) elapsedSec = (effBreakStart - startDT)/1000;
+    else if(now < effEnd) elapsedSec = (effBreakStart - startDT)/1000 + (now - effBreakEnd)/1000;
+    else elapsedSec = paidSec;
+  }
+  const earningsToday = perSecond * elapsedSec;
+
+  const totalSpanEff = Math.max((effEnd - startDT)/1000, 0);
+  const elapsedPct = totalSpanEff>0 ? Math.min(100, Math.max(0, ((now-startDT)/1000)/totalSpanEff*100)) : 0;
+  const breakStartPct = totalSpanEff>0 ? ((effBreakStart-startDT)/1000/totalSpanEff*100) : 0;
+  const breakWidthPct = totalSpanEff>0 ? (effBreakSec/totalSpanEff*100) : 0;
+  const dayTarget = dailyRate*todayWeight;
+  const earnedPct = dayTarget>0 ? Math.min(100, Math.max(0, earningsToday/dayTarget*100)) : 0;
+
+  let working = false, onBreak = false, statusText = '';
+  if(!hasSalary) statusText = 'ยังไม่กรอกเงินเดือน';
+  else if(!scheduleValid) statusText = 'เวลาทำงาน/พักไม่ถูกต้อง';
+  else if(todayWeight === 0) statusText = 'วันนี้ไม่ได้ทำงาน';
+  else if(now < startDT) statusText = 'ยังไม่ถึงเวลาเริ่มงาน';
+  else if(now >= effEnd) statusText = todayWeight===0.5 ? 'เลิกงานแล้ว (ครึ่งวัน)' : 'เลิกงานแล้ว';
+  else if(effBreakSec>0 && now >= effBreakStart && now < effBreakEnd){ onBreak = true; statusText = 'พักเบรก (ไม่ได้ค่าแรง)'; }
+  else { working = true; statusText = todayWeight===0.5 ? 'กำลังทำงาน (ครึ่งวัน)' : 'กำลังทำงาน'; }
+
+  const pastSum = periodDates.filter(d => d < today).reduce((s,d) => s + isMarked(emp,d), 0);
+  const periodTotal = pastSum*dailyRate + (todayWeight>0 ? earningsToday : 0);
+
+  return {hasSalary, scheduleValid, totalWorkDays, standardDays, absentDays, dailyRate, hourlyRate, perMinute, perSecond,
+    hoursPerDay, earningsToday, periodTotal, working, onBreak, statusText, breakSec, startDT, breakStartDT, breakEndDT,
+    endDTFull, effEnd, todayWeight, elapsedPct, breakStartPct, breakWidthPct, earnedPct};
+}
+
+function renderTopMeta(){
+  const {start, end} = getPeriodRange(new Date(), state.cutoffDay);
+  document.getElementById('periodLabel').textContent = 'รอบ ' + thaiDateLabel(start) + ' – ' + thaiDateLabel(end);
+  const daysLeft = Math.ceil((stripTime(end) - stripTime(new Date()))/86400000);
+  document.getElementById('cutoffCountdown').textContent =
+    daysLeft === 0 ? '(ตัดรอบวันนี้)' : daysLeft > 0 ? ('(อีก '+daysLeft+' วันตัดรอบ)') : '';
+}
+
+function renderEmployeeList(){
+  const listEl = document.getElementById('empList');
+  document.getElementById('empCount').textContent = state.employees.length;
+  if(state.employees.length === 0){
+    listEl.innerHTML = '<div class="empty">ยังไม่มีพนักงาน กด "+ เพิ่มพนักงาน" เพื่อเริ่มต้น</div>';
+    return;
+  }
+  const {start, end} = getPeriodRange(new Date(), state.cutoffDay);
+  const periodDates = listDates(start, end);
+  const today = stripTime(new Date());
+  const leadBlanks = periodDates.length ? periodDates[0].getDay() : 0;
+
+  listEl.innerHTML = state.employees.map(emp => {
+    const isOpen = expandedId === emp.id;
+    const calChips = periodDates.map(d => {
+      const marked = isMarked(emp, d);
+      const classNames = [];
+      if(marked === 1) classNames.push('on');
+      else if(marked === 0.5) classNames.push('half');
+      if(sameDate(d,today)) classNames.push('today');
+      return `<div class="day-chip${classNames.length ? ' ' + classNames.join(' ') : ''}" data-emp="${emp.id}" data-day="${dateKey(d)}">${d.getDate()}</div>`;
+    }).join('');
+    const blanks = Array.from({length:leadBlanks}).map(()=>'<div class="day-chip blank"></div>').join('');
+    const dow = THAI_DOW.map(x=>`<div class="cal-dow">${x}</div>`).join('');
+
+    return `
+    <div class="emp" data-emp="${emp.id}">
+      <div class="emp-row" data-toggle="${emp.id}">
+        <span class="dot" id="dot-${emp.id}"></span>
+        <div class="emp-name">
+          <div class="n">${escapeHtml(emp.name || 'พนักงานไม่ระบุชื่อ')}</div>
+          <div class="s" id="status-${emp.id}">–</div>
+        </div>
+        <div class="emp-figs">
+          <div class="fig"><div class="lbl">วันนี้</div><div class="amt mono" id="today-${emp.id}">0.00</div></div>
+          <div class="fig"><div class="lbl">รวมรอบนี้</div><div class="amt mono" id="total-${emp.id}">0.00</div></div>
+        </div>
+        <svg class="chevron${isOpen?' open':''}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="energy-wrap">
+        <div class="energy-bar">
+          <div class="energy-break" id="ebreak-${emp.id}"></div>
+          <div class="energy-fill" id="efill-${emp.id}" style="width:0%;"></div>
+        </div>
+        <div class="energy-label"><span id="elabel-${emp.id}">–</span><span class="pct" id="epct-${emp.id}">0%</span></div>
+      </div>
+      <div class="emp-body${isOpen?' open':''}">
+        <div class="emp-inner">
+          <div class="row3">
+            <div class="field"><label>ชื่อพนักงาน</label><input type="text" data-field="name" data-emp="${emp.id}" value="${escapeHtml(emp.name||'')}"></div>
+            <div class="field"><label>เงินเดือน (บาท)</label><input type="number" min="0" data-field="salary" data-emp="${emp.id}" value="${emp.salary||''}"></div>
+            <div class="field"><label>วันทำงานมาตรฐาน/รอบ</label><input type="number" min="1" step="1" data-field="standardDays" data-emp="${emp.id}" value="${emp.standardDays||''}"></div>
+          </div>
+          <div class="row4">
+            <div class="field"><label>เข้างาน</label><input type="time" data-field="startTime" data-emp="${emp.id}" value="${emp.startTime||'09:00'}"></div>
+            <div class="field"><label>เลิกงาน</label><input type="time" data-field="endTime" data-emp="${emp.id}" value="${emp.endTime||'18:00'}"></div>
+            <div class="field"><label>พักตั้งแต่</label><input type="time" data-field="breakStart" data-emp="${emp.id}" value="${emp.breakStart||'12:00'}"></div>
+            <div class="field"><label>พักถึง</label><input type="time" data-field="breakEnd" data-emp="${emp.id}" value="${emp.breakEnd||'13:00'}"></div>
+          </div>
+          <div class="break-note" id="schedule-${emp.id}">–</div>
+
+          <div class="rate-mini">
+            <div class="m"><div class="l">ต่อวัน</div><div class="v mono" id="rday-${emp.id}">–</div></div>
+            <div class="m"><div class="l">ต่อชม.</div><div class="v mono" id="rhour-${emp.id}">–</div></div>
+            <div class="m"><div class="l">ต่อนาที</div><div class="v mono" id="rmin-${emp.id}">–</div></div>
+            <div class="m"><div class="l">ต่อวินาที</div><div class="v mono" id="rsec-${emp.id}">–</div></div>
+          </div>
+
+          <div class="cal-label">
+            <span>วันทำงานในรอบนี้ (แตะเพื่อ cycle)</span>
+            <div class="quick-btns">
+              <button class="btn small success" data-quickfill-weekdays="${emp.id}">จ-ศ เต็ม</button>
+              <button class="btn small success" data-quickfill-half="${emp.id}">จ-ศ ½</button>
+              <button class="btn small" data-quickclear="${emp.id}">ล้าง</button>
+            </div>
+          </div>
+          <div class="cal-grid">${dow}</div>
+          <div class="cal-grid">${blanks}${calChips}</div>
+          <div class="cal-summary"><span>วันทำงานที่ติ๊ก / มาตรฐาน</span><b id="daycount-${emp.id}">0 / 0 วัน</b></div>
+
+          <div class="emp-actions">
+            <button class="btn small" data-remove="${emp.id}">🗑 ลบ</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updateLiveNumbers(){
+  const now = new Date();
+  const {start, end} = getPeriodRange(now, state.cutoffDay);
+  const periodDates = listDates(start, end);
+  let sumToday = 0, sumPeriod = 0, sumDailyRateToday = 0;
+
+  state.employees.forEach(emp => {
+    const r = computeEmployee(emp, now, periodDates);
+    sumToday += r.earningsToday;
+    sumPeriod += r.periodTotal;
+    if(r.todayWeight>0 && r.hasSalary) sumDailyRateToday += r.dailyRate * r.todayWeight;
+
+    const todayEl = document.getElementById('today-'+emp.id);
+    const totalEl = document.getElementById('total-'+emp.id);
+    const statusEl = document.getElementById('status-'+emp.id);
+    const dotEl = document.getElementById('dot-'+emp.id);
+    if(todayEl) todayEl.textContent = fmt(r.earningsToday);
+    if(totalEl) totalEl.textContent = fmt(r.periodTotal);
+    if(statusEl) statusEl.textContent = r.statusText;
+    if(dotEl) dotEl.className = 'dot' + (r.working ? ' on' : (r.onBreak ? ' brk' : ''));
+
+    const efill = document.getElementById('efill-'+emp.id);
+    const ebreak = document.getElementById('ebreak-'+emp.id);
+    const elabel = document.getElementById('elabel-'+emp.id);
+    const epct = document.getElementById('epct-'+emp.id);
+    if(efill){
+      const fillPct = r.todayWeight>0 ? r.elapsedPct : 0;
+      efill.style.width = fillPct + '%';
+      let cls = 'energy-fill';
+      if(r.working) cls += '';
+      else if(r.onBreak) cls += ' brk';
+      else if(r.todayWeight>0 && fillPct>=100) cls += ' done';
+      else cls += ' idle';
+      efill.className = cls;
+    }
+    if(ebreak){
+      if(r.todayWeight>0 && r.breakWidthPct>0){
+        ebreak.style.display = 'block';
+        ebreak.style.left = r.breakStartPct + '%';
+        ebreak.style.width = r.breakWidthPct + '%';
+      } else {
+        ebreak.style.display = 'none';
+      }
+    }
+    if(elabel){
+      elabel.textContent = r.todayWeight===0 ? 'ไม่ได้ทำงานวันนี้'
+        : !r.hasSalary ? 'ยังไม่กรอกเงินเดือน'
+        : 'ได้แล้ว ' + fmt(r.earningsToday) + ' / ' + fmt(r.dailyRate*r.todayWeight) + ' บาท';
+    }
+    if(epct){
+      epct.textContent = (r.todayWeight>0 && r.hasSalary) ? Math.round(r.earnedPct) + '%' : '–';
+    }
+
+    if(expandedId === emp.id){
+      const rday = document.getElementById('rday-'+emp.id);
+      const rhour = document.getElementById('rhour-'+emp.id);
+      const rmin = document.getElementById('rmin-'+emp.id);
+      const rsec = document.getElementById('rsec-'+emp.id);
+      if(rday) rday.textContent = r.hasSalary ? fmt(r.dailyRate) : '–';
+      if(rhour) rhour.textContent = r.hasSalary ? fmt(r.hourlyRate) : '–';
+      if(rmin) rmin.textContent = r.hasSalary ? fmt(r.perMinute) : '–';
+      if(rsec) rsec.textContent = r.hasSalary ? fmt4(r.perSecond) : '–';
+      const dc = document.getElementById('daycount-'+emp.id);
+      if(dc) dc.textContent = r.totalWorkDays + ' / ' + r.standardDays + ' วัน' + (r.absentDays>0 ? ' (ขาด '+r.absentDays+' วัน)' : '');
+      const sched = document.getElementById('schedule-'+emp.id);
+      if(sched){
+        if(!r.scheduleValid){
+          sched.textContent = '⚠️ เวลาเลิกงานต้องหลังเวลาเข้างาน และเวลาพักต้องไม่เกินเวลาทำงาน';
+          sched.className = 'break-note err';
+        } else {
+          sched.textContent = 'ทำงานสุทธิ ' + fmt(r.hoursPerDay) + ' ชม./วัน (ไม่รวมพัก ' + fmtTime(r.breakStartDT) + '–' + fmtTime(r.breakEndDT) + ' น.)';
+          sched.className = 'break-note';
+        }
+      }
+    }
+  });
+
+  document.getElementById('sumToday').textContent = fmt(sumToday) + ' บาท';
+  document.getElementById('sumPeriod').textContent = fmt(sumPeriod) + ' บาท';
+  document.title = '💰 ' + fmt(sumToday) + ' บาท (ทีม)';
+
+  const teamPct = sumDailyRateToday>0 ? Math.min(100, Math.max(0, sumToday/sumDailyRateToday*100)) : 0;
+  const teamFillEl = document.getElementById('teamFill');
+  const teamPctEl = document.getElementById('teamPct');
+  if(teamFillEl) teamFillEl.style.width = teamPct + '%';
+  if(teamPctEl) teamPctEl.textContent = Math.round(teamPct) + '%';
+
+  renderTopMeta();
+}
+
+// Event Listeners
+document.getElementById('cutoffInput').addEventListener('input', e => {
+  const v = parseInt(e.target.value, 10);
+  state.cutoffDay = (v>=1 && v<=31) ? v : 25;
+  saveState();
+  renderEmployeeList();
+  updateLiveNumbers();
+});
+
+function defaultStandardDays(periodDates){
+  return periodDates.filter(d => { const dow = d.getDay(); return dow>=1 && dow<=5; }).length;
+}
+
+document.getElementById('addBtn').addEventListener('click', () => {
+  const {start, end} = getPeriodRange(new Date(), state.cutoffDay);
+  const periodDates = listDates(start, end);
+  const suggested = defaultStandardDays(periodDates);
+  const emp = {id: uid(), name:'', salary:'', startTime:'09:00', endTime:'18:00', breakStart:'12:00', breakEnd:'13:00', standardDays: suggested, workDays:{}};
+
+  periodDates.forEach(d => {
+    if(d.getDay() >= 1 && d.getDay() <= 5) emp.workDays[dateKey(d)] = 1;
+  });
+
+  state.employees.push(emp);
+  expandedId = emp.id;
+  saveState();
+  renderEmployeeList();
+  updateLiveNumbers();
+});
+
+document.getElementById('empList').addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-toggle]');
+  const remove = e.target.closest('[data-remove]');
+  const chip = e.target.closest('.day-chip:not(.blank)');
+  const quickFill = e.target.closest('[data-quickfill-weekdays]');
+  const quickFillHalf = e.target.closest('[data-quickfill-half]');
+  const quickClear = e.target.closest('[data-quickclear]');
+
+  if(remove){
+    const id = remove.getAttribute('data-remove');
+    if(confirm('ลบพนักงานคนนี้?')){
+      state.employees = state.employees.filter(x => x.id !== id);
+      if(expandedId === id) expandedId = null;
+      saveState();
+      renderEmployeeList();
+      updateLiveNumbers();
+    }
+    return;
+  }
+
+  if(quickFill){
+    const id = quickFill.getAttribute('data-quickfill-weekdays');
+    const emp = state.employees.find(x => x.id === id);
+    if(emp){
+      const {start, end} = getPeriodRange(new Date(), state.cutoffDay);
+      const periodDates = listDates(start, end);
+      periodDates.forEach(d => {
+        if(d.getDay() >= 1 && d.getDay() <= 5) emp.workDays[dateKey(d)] = 1;
+      });
+      saveState();
+      renderEmployeeList();
+      updateLiveNumbers();
+    }
+    return;
+  }
+
+  if(quickFillHalf){
+    const id = quickFillHalf.getAttribute('data-quickfill-half');
+    const emp = state.employees.find(x => x.id === id);
+    if(emp){
+      const {start, end} = getPeriodRange(new Date(), state.cutoffDay);
+      const periodDates = listDates(start, end);
+      periodDates.forEach(d => {
+        if(d.getDay() >= 1 && d.getDay() <= 5) emp.workDays[dateKey(d)] = 0.5;
+      });
+      saveState();
+      renderEmployeeList();
+      updateLiveNumbers();
+    }
+    return;
+  }
+
+  if(quickClear){
+    const id = quickClear.getAttribute('data-quickclear');
+    const emp = state.employees.find(x => x.id === id);
+    if(emp){
+      emp.workDays = {};
+      saveState();
+      renderEmployeeList();
+      updateLiveNumbers();
+    }
+    return;
+  }
+
+  if(chip){
+    const id = chip.getAttribute('data-emp');
+    const day = chip.getAttribute('data-day');
+    const emp = state.employees.find(x => x.id === id);
+    if(emp){
+      const key = day;
+      const currentVal = emp.workDays[key] || 0;
+      let nextVal = 0;
+      if(currentVal === 0) nextVal = 0.5;
+      else if(currentVal === 0.5) nextVal = 1;
+      else if(currentVal === 1) nextVal = 0;
+      emp.workDays[key] = nextVal;
+      saveState();
+      renderEmployeeList();
+      updateLiveNumbers();
+    }
+    return;
+  }
+
+  if(toggle){
+    const id = toggle.getAttribute('data-toggle');
+    expandedId = (expandedId === id) ? null : id;
+    renderEmployeeList();
+    updateLiveNumbers();
+  }
+});
+
+document.getElementById('empList').addEventListener('input', (e) => {
+  const field = e.target.getAttribute('data-field');
+  const id = e.target.getAttribute('data-emp');
+  if(!field || !id) return;
+  const emp = state.employees.find(x => x.id === id);
+  if(!emp) return;
+  emp[field] = e.target.value;
+  saveState();
+  if(field === 'name'){
+    const nameEl = document.querySelector('.emp[data-emp="'+id+'"] .n');
+    if(nameEl) nameEl.textContent = e.target.value || 'พนักงานไม่ระบุชื่อ';
+  }
+  updateLiveNumbers();
+});
+
+// Excel Export
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const now = new Date();
+  const {start, end} = getPeriodRange(now, state.cutoffDay);
+  const periodDates = listDates(start, end);
+
+  const header = ['ชื่อพนักงาน','เงินเดือน','เข้างาน','เลิกงาน','พักตั้งแต่','พักถึง','ชม.ทำงานสุทธิ/วัน','วันมาตรฐาน','วันทำงาน','วันขาด','อัตรา/วัน','อัตรา/ชม.','อัตรา/นาที','อัตรา/วินาที','รวมรอบนี้'];
+  const rows = state.employees.map(emp => {
+    const r = computeEmployee(emp, now, periodDates);
+    return [emp.name||'–', parseFloat(emp.salary)||0, emp.startTime||'', emp.endTime||'', emp.breakStart||'', emp.breakEnd||'',
+      Number(r.hoursPerDay.toFixed(2)), r.standardDays, r.totalWorkDays, r.absentDays,
+      Number(r.dailyRate.toFixed(2)), Number(r.hourlyRate.toFixed(2)), Number(r.perMinute.toFixed(2)), Number(r.perSecond.toFixed(4)), Number(r.periodTotal.toFixed(2))];
+  });
+  const totalIdx = header.length-1;
+  const totals = header.map((_,i) => i===1 ? rows.reduce((s,r)=>s+r[1],0) : (i===totalIdx ? rows.reduce((s,r)=>s+r[totalIdx],0) : ''));
+
+  const aoa = [['รายงานเงินเดือน — รอบ '+thaiDateLabel(start)+' ถึง '+thaiDateLabel(end)],
+    ['ส่งออก '+thaiDateLabel(now)+' '+now.toLocaleTimeString('th-TH')], [], header, ...rows, [], ['รวมทั้งหมด', ...totals.slice(1)]];
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:20},{wch:12},{wch:9},{wch:9},{wch:10},{wch:10},{wch:14},{wch:10},{wch:9},{wch:9},{wch:11},{wch:11},{wch:11},{wch:11},{wch:15}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:header.length-1}}, {s:{r:1,c:0}, e:{r:1,c:header.length-1}}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'รายงาน');
+  XLSX.writeFile(wb, 'salary_'+dateKey(start)+'.xlsx');
+});
+
+// Share panel toggle
+document.getElementById('shareToggleBtn').addEventListener('click', () => {
+  document.getElementById('sharePanel').classList.toggle('open');
+});
+
+// Generate a standalone shareable copy with the Apps Script URL baked in.
+// This is a fresh HTML file: on the recipient's own browser it starts with empty data
+// (localStorage is per-browser), so your salary numbers never travel with it.
+document.getElementById('generateShareBtn').addEventListener('click', () => {
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if(!url){
+    alert('กรุณาวาง Apps Script Web App URL ก่อน (ดูวิธีตั้งค่าด้านล่าง) หรือถ้าไม่ต้องการระบบขออนุญาต ให้ส่งไฟล์ต้นฉบับตรงๆ ได้เลย');
+    return;
+  }
+  let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  html = html.replace('const SCRIPT_URL = "";', 'const SCRIPT_URL = ' + JSON.stringify(url) + ';');
+  const blob = new Blob([html], {type:'text/html'});
+  const dlUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = dlUrl; a.download = 'salary-meter-share.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(dlUrl);
+  alert('ดาวน์โหลดไฟล์แล้ว ✅\nส่งไฟล์นี้ให้ใครก็ได้ — ทุกคนต้องขอสิทธิ์และรอคุณอนุมัติผ่าน Google Sheet ก่อนถึงจะใช้งานได้');
+});
+
+// Auto-save when page is hidden
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) saveState();
+});
+
+// ===== Access lock (only active on shared copies where SCRIPT_URL is set) =====
+function showLock(){ document.getElementById('lockOverlay').style.display='flex'; document.body.style.overflow='hidden'; }
+function hideLock(){ document.getElementById('lockOverlay').style.display='none'; document.body.style.overflow=''; }
+function showFormStep(){
+  document.getElementById('lockFormStep').style.display='block';
+  document.getElementById('lockWaitStep').style.display='none';
+  document.getElementById('lockDeniedStep').style.display='none';
+}
+function showWaitStep(){
+  document.getElementById('lockFormStep').style.display='none';
+  document.getElementById('lockWaitStep').style.display='block';
+  document.getElementById('lockDeniedStep').style.display='none';
+}
+function showDeniedStep(){
+  document.getElementById('lockFormStep').style.display='none';
+  document.getElementById('lockWaitStep').style.display='none';
+  document.getElementById('lockDeniedStep').style.display='block';
+}
+
+let pollTimer = null;
+function pollStatus(id){
+  clearInterval(pollTimer);
+  checkOnce(id);
+  pollTimer = setInterval(() => checkOnce(id), 6000);
+}
+async function checkOnce(id){
+  const errEl = document.getElementById('lockError');
+  try{
+    const res = await fetch(SCRIPT_URL + '?action=check&id=' + encodeURIComponent(id));
+    const data = await res.json();
+    if(data.status === 'approved'){
+      clearInterval(pollTimer);
+      localStorage.setItem(REQ_KEY, JSON.stringify({id, status:'approved'}));
+      hideLock();
+      realInit();
+    } else if(data.status === 'denied'){
+      clearInterval(pollTimer);
+      localStorage.setItem(REQ_KEY, JSON.stringify({id, status:'denied'}));
+      showDeniedStep();
+    }
+  }catch(err){
+    errEl.textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ตอนนี้ จะลองใหม่อัตโนมัติ';
+    errEl.style.display = 'block';
+  }
+}
+
+function checkAccess(){
+  if(!SCRIPT_URL) return true;
+  showLock();
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(REQ_KEY) || 'null'); }catch(e){}
+  if(saved && saved.status === 'approved') return true;
+  if(saved && saved.id){
+    if(saved.status === 'denied') showDeniedStep();
+    else { showWaitStep(); pollStatus(saved.id); }
+  } else {
+    showFormStep();
+  }
+  return false;
+}
+
+document.getElementById('lockRequestBtn').addEventListener('click', async () => {
+  const name = document.getElementById('lockNameInput').value.trim();
+  const note = document.getElementById('lockNoteInput').value.trim();
+  const errEl = document.getElementById('lockError');
+  errEl.style.display = 'none';
+  if(!name){ errEl.textContent='กรุณากรอกชื่อ'; errEl.style.display='block'; return; }
+  try{
+    const res = await fetch(SCRIPT_URL, {method:'POST', body: JSON.stringify({action:'request', name, note})});
+    const data = await res.json();
+    if(data.requestId){
+      localStorage.setItem(REQ_KEY, JSON.stringify({id:data.requestId, status:'pending'}));
+      showWaitStep();
+      pollStatus(data.requestId);
+    } else {
+      errEl.textContent = 'ส่งคำขอไม่สำเร็จ ลองใหม่อีกครั้ง';
+      errEl.style.display = 'block';
+    }
+  }catch(err){
+    errEl.textContent = 'เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+    errEl.style.display = 'block';
+  }
+});
+document.getElementById('lockRecheckBtn').addEventListener('click', () => {
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(REQ_KEY) || 'null'); }catch(e){}
+  if(saved && saved.id) checkOnce(saved.id);
+});
+document.getElementById('lockRetryBtn').addEventListener('click', () => {
+  localStorage.removeItem(REQ_KEY);
+  showFormStep();
+});
+
+// Initialize
+function realInit(){
+  loadState();
+  const {start:_s, end:_e} = getPeriodRange(new Date(), state.cutoffDay);
+  const _suggested = defaultStandardDays(listDates(_s, _e));
+  state.employees.forEach(emp => {
+    if(!emp.standardDays) emp.standardDays = _suggested;
+    if(!emp.workDays) emp.workDays = {};
+    // Migrate old format (hoursPerDay/breakHours) to explicit clock-time schedule
+    if(!emp.endTime){
+      const start = toMinutes(emp.startTime||'09:00');
+      const hrs = parseFloat(emp.hoursPerDay) || 8;
+      const brk = (emp.breakHours!==undefined && emp.breakHours!==null && emp.breakHours!=='') ? parseFloat(emp.breakHours) : 1;
+      const bStart = start + (hrs*60)/2;
+      const bEnd = bStart + brk*60;
+      const end = start + hrs*60 + brk*60;
+      const toHM = mins => String(Math.floor(mins/60)%24).padStart(2,'0')+':'+String(Math.round(mins%60)).padStart(2,'0');
+      emp.startTime = emp.startTime || '09:00';
+      emp.breakStart = toHM(bStart);
+      emp.breakEnd = toHM(bEnd);
+      emp.endTime = toHM(end);
+    }
+  });
+  document.getElementById('cutoffInput').value = state.cutoffDay;
+  renderTopMeta();
+  renderEmployeeList();
+  updateLiveNumbers();
+  setInterval(updateLiveNumbers, 1000);
+}
+function init(){
+  if(checkAccess()) realInit();
+}
+init();
+</script>
+</body>
+</html>
